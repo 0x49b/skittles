@@ -8,3 +8,12 @@
 * https://github.com/AymenNacer/Forward-and-Inverse-Kinematics-for-3-DOF-Robotic-arm
 * https://oscarliang.com/inverse-kinematics-and-trigonometry-basics/
 * https://arduin0.blogspot.com/2012/01/hexapod-robot-gaits-calculation-inverse.html
+* http://www.cogrobotics.unina.it/roman/papers/BAILAR2017_paper_10.pdf
+* https://moribots.github.io/project/spot-mini-mini
+* https://github.com/modenaxe/awesome-biomechanics
+* https://github.com/Derek-TH-Wang/quadruped_ctrl
+* https://github.com/BitsRobocon/Quadruped-DIPLOID
+* https://gitlab.com/project-march
+* https://github.com/HitSZwang/mini-cheetah-pybullet
+* https://github.com/RyanRizzo96/QuadrupedRobot_DeepRN
+* https://github.com/LFSousa/robot-gait-generator
