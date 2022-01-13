@@ -1,116 +1,81 @@
-#include <Arduino.h>
+#include "PetoiESP32MP3.h"      // MP3 Player library
+//#include "PetoiESP32OTA.h"      // OTA Service
+#include "PetoiESP32SPIFFS.h"   // SPIFFS library for storage on QSPI Flash
 
-/*************************************************** 
-  This is an example for our Adafruit 16-channel PWM & Servo driver
-  Servo test - this will drive 8 servos, one after the other on the
-  first 8 pins of the PCA9685
+// #include "PetoiMPU6050DMP.h"    // Simplified MPU6050 DMP library, outputs Euler angles in degrees
 
-  Pick one up today in the adafruit shop!
-  ------> http://www.adafruit.com/products/815
-  
-  These drivers use I2C to communicate, 2 pins are required to  
-  interface.
+#include "PetoiBittleMotion.h"
+#include "BiboardPinDef.h"      // Biboard Pin definition file, for reference
 
-  Adafruit invests time and resources providing this open source code, 
-  please support Adafruit and open-source hardware by purchasing 
-  products from Adafruit!
+//char *WiFi_SSID = "Kpower-Engineers_2G";    // Your WiFi SSID, only support 2.4GHz, ESP32 cannot recieve 5GHz signal
+//char *WiFi_PASSWORD = "kpower2012";         // Your WiFi password
 
-  Written by Limor Fried/Ladyada for Adafruit Industries.  
-  BSD license, all text above must be included in any redistribution
- ****************************************************/
 
-#include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
-#include "config.h"
+//
+//IRrecv irrecv(IR_Remote_pin);   // IR in, ref: BiboardPinDef.h
+//decode_results results;
 
-// called this way, it uses the default address 0x40
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-// you can also call it with a different address you want
-//Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
-// you can also call it with a different address and I2C interface
-//Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
+PetoiESP32MP3Player MP3Player;
+//PetoiESP32OTA OTAService;
 
-// Depending on your servo make, the pulse width min and max may vary, you 
-// want these to be as small/large as possible without hitting the hard stop
-// for max range. You'll have to tweak them as necessary to match the servos you
-// have!
-#define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
-#define SERVOMAX  550 // This is the 'maximum' pulse length count (out of 4096)
-#define USMIN  800 // This is the rounded 'minimum' microsecond length based on the minimum pulse of 150
-#define USMAX  2200 // This is the rounded 'maximum' microsecond length based on the maximum pulse of 600
-#define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
 
-// our servo # counter
-
-void setup() {
-  Serial.begin(9600);
-  Serial.println("8 channel Servo test!");
-
-  pwm.begin();
-  /*
-   * In theory the internal oscillator (clock) is 25MHz but it really isn't
-   * that precise. You can 'calibrate' this by tweaking this number until
-   * you get the PWM update frequency you're expecting!
-   * The int.osc. for the PCA9685 chip is a range between about 23-27MHz and
-   * is used for calculating things like writeMicroseconds()
-   * Analog servos run at ~50 Hz updates, It is importaint to use an
-   * oscilloscope in setting the int.osc frequency for the I2C PCA9685 chip.
-   * 1) Attach the oscilloscope to one of the PWM signal pins and ground on
-   *    the I2C PCA9685 chip you are setting the value for.
-   * 2) Adjust setOscillatorFrequency() until the PWM update frequency is the
-   *    expected value (50Hz for most ESCs)
-   * Setting the value here is specific to each individual I2C PCA9685 chip and
-   * affects the calculations for the PWM update frequency. 
-   * Failure to correctly set the int.osc value will cause unexpected PWM results
-   */
-  pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
-
-  delay(10);
+byte melody[] = {8, 13, 10, 13, 8,  0,  5,  8,  3,  5, 8,//tone
+                 8, 8,  32, 32, 8, 32, 32, 32, 32, 32, 8 //relative duration, 8 means 1/8 note length
+                };
+void beep(int note, float duration = 10, int pause = 0, byte repeat = 1 ) {
+  if (note == 0) {
+    digitalWrite(25, 0);
+    delay(duration);
+    return;
+  }
+  int freq = 220 * pow(1.059463, note - 1); // 220 is note A3
+  //1.059463 comes from https://en.wikipedia.org/wiki/Twelfth_root_of_two
+  float period = 1000000.0 / freq / 2.0;
+  for (byte r = 0; r < repeat; r++) {
+    for (float t = 0; t < duration * 1000; t += period * 2) {
+      digitalWrite(25, 1);      // Almost any value can be used except 0 and 255. it can be tuned as the amplitude of the note
+      // experiment to get the best tone
+      delayMicroseconds(period);          // wait for a delayms ms
+      digitalWrite(25, 0);       // 0 turns it off
+      delayMicroseconds(period);          // wait for a delayms ms
+    }
+    delay(pause);
+  }
+}
+void playMelody(byte m[], int len) {
+  for (int i = 0; i < len; i++)
+    beep(m[i], 1000 / m[len + i], 100);
 }
 
-// You can use this function if you'd like to set the pulse length in seconds
-// e.g. setServoPulse(0, 0.001) is a ~1 millisecond pulse width. It's not precise!
-void setServoPulse(uint8_t n, double pulse) {
-  double pulselength;
-  
-  pulselength = 1000000;   // 1,000,000 us per second
-  pulselength /= SERVO_FREQ;   // Analog servos run at ~60 Hz updates
-  Serial.print(pulselength); Serial.println(" us per period"); 
-  pulselength /= 4096;  // 12 bits of resolution
-  Serial.print(pulselength); Serial.println(" us per bit"); 
-  pulse *= 1000000;  // convert input seconds to us
-  pulse /= pulselength;
-  Serial.println(pulse);
-  pwm.setPWM(n, 0, pulse);
+void setup() {
+  Serial.begin(115200);         // Serial start, ESP32 MAX 230400
+    pinMode(25, OUTPUT);
+  MP3Player.init();             // Setup MP3 decoder, SPIFFS and DAC output
+  playMelody(melody, sizeof(melody) / 2);
+//  MP3Player.mp3PlayBack("/dogbark2.mp3");
+//  pinMode(25, OUTPUT);
+  digitalWrite(25,0);
+  //  pinMode(25, OUTPUT);
+  //  playMelody(melody, sizeof(melody) / 2);
+  //  MP3Player.mp3PlayBack("/dogbark2.mp3");
+  //  delay(10);
+  //  //OTAService.setupWiFi(WiFi_SSID, WiFi_PASSWORD);   // Setup WiFi connection
+  //  //OTAService.OTAEnable();     // Enable OTA Service
+  delay(10);
+  mpu_setup();                      // Setup MPU6050 & DMP
+  delay(10);
+  //  irrecv.enableIRIn();          // Enable IR in
+  testRun();
+
+  delay(2000);
 }
 
 void loop() {
-  
-  // Drive each servo one at a time using setPWM()
-  /**
-  Serial.println(servonum);
-  for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++) {
-    pwm.setPWM(servonum, 0, pulselen);
-  }
-
-  delay(500);
-  for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--) {
-    pwm.setPWM(servonum, 0, pulselen);
-  }
-
-  delay(500);*/
-
-  // Drive each servo one at a time using writeMicroseconds(), it's not precise due to calculation rounding!
-  // The writeMicroseconds() function is used to mimic the Arduino Servo library writeMicroseconds() behavior. 
-  for (uint16_t microsec = USMIN; microsec < USMAX; microsec++) {
-    pwm.writeMicroseconds(FRONT_LEFT_SHOULDER, microsec);
-  }
-
-  delay(500);
-  for (uint16_t microsec = USMAX; microsec > USMIN; microsec--) {
-    pwm.writeMicroseconds(FRONT_LEFT_SHOULDER, microsec);
-  }
-
-  delay(500);
+  //getIMUDataOfYawPitchRaw();
+  /*   OTAService.handleOTA();
+    getIMUDataOfYawPitchRaw();
+    if (irrecv.decode(&results)) {
+      Serial.println(results.value, HEX);
+      irrecv.resume(); // Receive the next value
+    } */
 }
