@@ -1,5 +1,8 @@
 # Skittles
-:dog2: Robot Dog based on https://www.thingiverse.com/thing:4910279
+:dog2: Robot Dog based on https://www.thingiverse.com/thing:4910279 and Petoi Bittle
+
+## Docs
+Find them here: skittles.readthedocs.io
 
 ## Some links
 * https://chome.nerpa.tech/mcu/robotic-arm-inverse-kinematics-on-arduino/
